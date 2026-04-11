@@ -1,0 +1,49 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+tmp/
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Coverage
+coverage/
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# AI tools
+.claude/
+.cursor/
+
+# PRD & internal docs
+PRD-*
+
+# Secrets
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Turbo
+.turbo/
+
+# Lock file (committed separately)
+# pnpm-lock.yaml is committed

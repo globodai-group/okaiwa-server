@@ -1,0 +1,11 @@
+# Global
+* @globodai-group/core
+
+# Backend services
+relay/ @globodai-group/backend @globodai-group/crypto
+identity/ @globodai-group/backend
+push/ @globodai-group/backend
+blockchain/ @globodai-group/backend @globodai-group/blockchain
+
+# Infrastructure & CI
+.github/ @globodai-group/devops

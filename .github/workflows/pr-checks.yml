@@ -1,0 +1,179 @@
+name: PR Checks
+
+on:
+  pull_request:
+    branches: [dev]
+
+concurrency:
+  group: pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '20'
+  PNPM_VERSION: '9'
+
+jobs:
+  # ──────────────────────────────────────────────
+  # Block 1 — Critical checks (parallel)
+  # ──────────────────────────────────────────────
+
+  git-conflicts:
+    name: Git Conflicts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check for merge conflict markers
+        run: |
+          if grep -rn '<<<<<<< \|======= \|>>>>>>> ' --include='*.ts' --include='*.dart' --include='*.rs' --include='*.json' . ; then
+            echo "::error::Merge conflict markers found"
+            exit 1
+          fi
+
+  lockfile:
+    name: Lockfile
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+      - name: Validate lockfile
+        run: pnpm install --frozen-lockfile
+
+  prettier:
+    name: Prettier
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run prettier
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run lint
+
+  typecheck:
+    name: Type Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run typecheck
+
+  security-audit:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+      - run: pnpm audit --audit-level=high
+
+  # ──────────────────────────────────────────────
+  # Block 2 — Non-blocking checks
+  # ──────────────────────────────────────────────
+
+  banned-keywords:
+    name: Banned Keywords
+    needs: [git-conflicts, lockfile, prettier, lint, typecheck, security-audit]
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check for banned patterns
+        run: |
+          FOUND=0
+          # No console.log in production code
+          if grep -rn 'console\.log' --include='*.ts' relay/ identity/ push/ blockchain/ | grep -v 'test' | grep -v '.spec.' | grep -v 'node_modules'; then
+            echo "::warning::console.log found in production code — use structured logging"
+            FOUND=1
+          fi
+          # No TODO/FIXME/HACK without issue reference
+          if grep -rn 'TODO\|FIXME\|HACK' --include='*.ts' relay/ identity/ push/ blockchain/ | grep -v '#[0-9]'; then
+            echo "::warning::TODO/FIXME/HACK without issue reference found"
+            FOUND=1
+          fi
+          exit $FOUND
+
+  # ──────────────────────────────────────────────
+  # Block 3 — Tests
+  # ──────────────────────────────────────────────
+
+  tests:
+    name: Tests
+    needs: [git-conflicts, lockfile, prettier, lint, typecheck, security-audit]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run test
+
+  # ──────────────────────────────────────────────
+  # Block 4 — Summary gate
+  # ──────────────────────────────────────────────
+
+  summary:
+    name: PR Summary
+    if: always()
+    needs: [git-conflicts, lockfile, prettier, lint, typecheck, security-audit, tests]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check critical results
+        run: |
+          if [ "${{ needs.git-conflicts.result }}" != "success" ] || \
+             [ "${{ needs.lockfile.result }}" != "success" ] || \
+             [ "${{ needs.prettier.result }}" != "success" ] || \
+             [ "${{ needs.lint.result }}" != "success" ] || \
+             [ "${{ needs.typecheck.result }}" != "success" ] || \
+             [ "${{ needs.security-audit.result }}" != "success" ]; then
+            echo "::error::One or more critical checks failed"
+            exit 1
+          fi
+
+          if [ "${{ needs.tests.result }}" = "failure" ]; then
+            echo "::warning::Tests failed — review required"
+            exit 1
+          fi
+
+          echo "All critical checks passed"

@@ -1,0 +1,29 @@
+name: Branch Protection
+
+on:
+  pull_request:
+    branches: [rec, main]
+
+jobs:
+  validate-source:
+    name: Validate Source Branch
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check branch flow
+        run: |
+          TARGET="${{ github.base_ref }}"
+          SOURCE="${{ github.head_ref }}"
+
+          echo "PR: $SOURCE -> $TARGET"
+
+          if [ "$TARGET" = "rec" ] && [ "$SOURCE" != "dev" ]; then
+            echo "::error::Branch 'rec' can only receive PRs from 'dev'. Got: $SOURCE"
+            exit 1
+          fi
+
+          if [ "$TARGET" = "main" ] && [ "$SOURCE" != "rec" ]; then
+            echo "::error::Branch 'main' can only receive PRs from 'rec'. Got: $SOURCE"
+            exit 1
+          fi
+
+          echo "Branch flow validated: $SOURCE -> $TARGET"

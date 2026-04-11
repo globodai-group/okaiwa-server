@@ -1,0 +1,36 @@
+{
+  "name": "@okaiwa/identity",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Okaiwa identity server — user registration, key management, and privacy-preserving discovery",
+  "scripts": {
+    "start": "node bin/server.js",
+    "build": "tsc",
+    "dev": "node ace serve --watch",
+    "test": "vitest",
+    "test:unit": "vitest run",
+    "lint": "eslint . --ext .ts",
+    "lint:fix": "eslint . --ext .ts --fix",
+    "prettier": "prettier --check .",
+    "prettier:fix": "prettier --write .",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@adonisjs/auth": "^9.2.0",
+    "@adonisjs/core": "^6.14.1",
+    "@adonisjs/lucid": "^21.3.0",
+    "@vinejs/vine": "^2.1.0",
+    "pg": "^8.13.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "eslint": "^9.16.0",
+    "prettier": "^3.4.2",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "name": "@okaiwa/push",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Okaiwa push notification gateway — silent notifications with ZERO message content",
+  "scripts": {
+    "start": "node bin/server.js",
+    "build": "tsc",
+    "dev": "node ace serve --watch",
+    "test": "vitest",
+    "test:unit": "vitest run",
+    "lint": "eslint . --ext .ts",
+    "lint:fix": "eslint . --ext .ts --fix",
+    "prettier": "prettier --check .",
+    "prettier:fix": "prettier --write .",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@adonisjs/core": "^6.14.1",
+    "@vinejs/vine": "^2.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "eslint": "^9.16.0",
+    "prettier": "^3.4.2",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

@@ -1,0 +1,10 @@
+node_modules
+dist
+build
+coverage
+pnpm-lock.yaml
+*.min.js
+.dart_tool
+target
+*.g.dart
+*.freezed.dart
