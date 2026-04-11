@@ -17,7 +17,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@adonisjs/auth": "^9.2.0",
+    "@adonisjs/auth": "^10.1.0",
     "@adonisjs/core": "^6.14.1",
     "@adonisjs/lucid": "^21.3.0",
     "@vinejs/vine": "^2.1.0",
