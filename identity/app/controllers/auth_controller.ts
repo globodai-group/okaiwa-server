@@ -200,11 +200,11 @@ export default class AuthController {
     const payload = await request.validateUsing(refreshValidator)
 
     /**
-     * TODO: Validate refresh token and issue new access token.
-     * Refresh tokens are single-use — after rotation, the old
-     * refresh token is invalidated to prevent replay.
+     * TODO: Validate payload.refreshToken and issue new access token.
+     * Refresh tokens are single-use — after rotation, the old refresh
+     * token is invalidated to prevent replay.
      */
-    const _refreshToken = payload.refreshToken
+    void payload
 
     response.ok({
       sessionToken: '',

@@ -111,17 +111,12 @@ export default class PushController {
     const payload = await request.validateUsing(registerDeviceValidator)
 
     /**
-     * TODO: Store the device token in the database or Redis.
-     * The storage maps deviceId → { pushToken, platform }.
-     * This mapping does NOT include user identity.
-     *
-     * Old tokens for the same deviceId should be replaced
-     * (devices rotate push tokens periodically).
+     * TODO: Store payload.deviceToken, payload.platform, payload.deviceId
+     * in the database or Redis. The storage maps deviceId → { pushToken,
+     * platform }. This mapping does NOT include user identity. Old tokens
+     * for the same deviceId should be replaced (devices rotate push
+     * tokens periodically).
      */
-    const _deviceToken = payload.deviceToken
-    const _platform = payload.platform
-    const _deviceId = payload.deviceId
-
     response.created({
       status: 'registered',
       deviceId: payload.deviceId,

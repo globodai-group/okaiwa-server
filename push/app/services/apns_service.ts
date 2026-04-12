@@ -130,11 +130,10 @@ export class ApnsService {
     /**
      * TODO: Implement HTTP/2 request to APNs.
      *
-     * The request is:
-     * POST /3/device/{deviceToken}
-     * Host: api.push.apple.com
-     * Headers: {headers}
-     * Body: {payload}
+     * Endpoint: https://{this.host}:{APNS_PORT}/3/device/{deviceToken}
+     * Method:   POST
+     * Headers:  {headers}
+     * Body:     {payload}
      *
      * Response:
      * - 200: Success
@@ -142,12 +141,12 @@ export class ApnsService {
      * - 410: Token is no longer active (app uninstalled)
      * - 429: Too many requests (rate limited by Apple)
      *
-     * On 410, we throw with code 'INVALID_TOKEN' so the caller
+     * On 410, throw with code 'INVALID_TOKEN' so the caller
      * can clean up the stale token.
      */
-    const _endpoint = `https://${this.host}:${APNS_PORT}/3/device/${deviceToken}`
-    const _headers = headers
-    const _body = payload
+    void deviceToken
+    void headers
+    void payload
   }
 
   /**

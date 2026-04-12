@@ -1,11 +1,13 @@
 import { defineConfig } from '@adonisjs/lucid'
+import env from '#start/env'
 
 /**
  * PostgreSQL database configuration for the identity service.
  *
  * SECURITY:
- * - SSL is REQUIRED in production — plaintext DB connections would
- *   expose hashed phone numbers and public keys in transit.
+ * - SSL is REQUIRED when connecting to a remote PostgreSQL host in production.
+ *   For localhost connections, SSL is typically disabled at the PG level
+ *   and unnecessary at the transport layer (loopback is not observable).
  * - Statement timeout prevents long-running queries that could be
  *   used for timing attacks on hash lookups.
  * - Connection pooling is limited to prevent connection exhaustion DoS.
@@ -17,48 +19,43 @@ import { defineConfig } from '@adonisjs/lucid'
  * - identityPublicKey: Public key, safe to expose.
  * - pre-keys: Public keys, consumed on use.
  */
+const pgHost = env.get('PG_HOST')
+const isLocalhost = pgHost === '127.0.0.1' || pgHost === 'localhost' || pgHost === '::1'
+
+/**
+ * Enable SSL only for non-localhost production connections.
+ * Loopback traffic does not traverse the network, so SSL adds no value
+ * and would require setting up a local CA.
+ */
+const sslConfig =
+  env.get('NODE_ENV') === 'production' && !isLocalhost
+    ? {
+        rejectUnauthorized: env.get('DB_SSL_REJECT_UNAUTHORIZED', 'true') === 'true',
+        ca: env.get('DB_SSL_CA', undefined),
+      }
+    : false
+
 export default defineConfig({
-  connection: 'pg',
+  connection: env.get('DB_CONNECTION', 'pg'),
 
   connections: {
     pg: {
       client: 'pg',
       connection: {
-        host: process.env.DB_HOST ?? '127.0.0.1',
-        port: Number(process.env.DB_PORT ?? 5432),
-        user: process.env.DB_USER ?? 'okaiwa_identity',
-        password: process.env.DB_PASSWORD ?? '',
-        database: process.env.DB_DATABASE ?? 'okaiwa_identity',
-
-        /**
-         * SSL configuration.
-         * In production, SSL is mandatory to protect data in transit.
-         * The CA certificate should be provided via DB_SSL_CA env var
-         * for certificate pinning.
-         */
-        ssl: process.env.NODE_ENV === 'production'
-          ? {
-              rejectUnauthorized: true,
-              ca: process.env.DB_SSL_CA ?? undefined,
-            }
-          : false,
+        host: pgHost,
+        port: env.get('PG_PORT'),
+        user: env.get('PG_USER'),
+        password: env.get('PG_PASSWORD'),
+        database: env.get('PG_DB_NAME'),
+        ssl: sslConfig,
       },
 
       pool: {
-        /** Minimum connections kept alive. */
         min: 2,
-        /** Maximum connections. Sized for expected discovery query load. */
         max: 20,
       },
 
-      /**
-       * Statement timeout in milliseconds.
-       * Prevents long-running queries that could:
-       * 1. Exhaust the connection pool (DoS).
-       * 2. Be used for timing attacks on hash comparisons.
-       */
       debug: false,
-
       healthCheck: true,
 
       migrations: {

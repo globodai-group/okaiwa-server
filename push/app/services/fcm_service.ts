@@ -145,9 +145,9 @@ export class FcmService {
      * On 404 or token-related errors, throw with code 'INVALID_TOKEN'
      * so the caller can clean up the stale registration.
      */
-    const _url = url
-    const _token = accessToken
-    const _body = JSON.stringify(message)
+    void url
+    void accessToken
+    void message
   }
 
   /**
