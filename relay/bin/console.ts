@@ -14,7 +14,22 @@ import { Ignitor, prettyPrintError } from '@adonisjs/core'
 
 const APP_ROOT = new URL('../', import.meta.url)
 
-const app = new Ignitor(APP_ROOT)
+/**
+ * Module importer — see bin/server.ts for rationale.
+ */
+const IMPORTER = (filePath: string) => {
+  if (filePath.startsWith('./') || filePath.startsWith('../')) {
+    return import(new URL(filePath, APP_ROOT).href)
+  }
+  return import(filePath)
+}
+
+const app = new Ignitor(APP_ROOT, { importer: IMPORTER })
+  .tap((app) => {
+    app.booting(async () => {
+      await import('#start/env')
+    })
+  })
 
 try {
   await app.ace().handle(process.argv.splice(2))
