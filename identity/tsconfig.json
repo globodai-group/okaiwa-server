@@ -1,9 +1,9 @@
 {
   "compilerOptions": {
-    "target": "ES2022",
+    "target": "ESNext",
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
-    "lib": ["ES2022"],
+    "lib": ["ESNext"],
     "outDir": "./build",
     "rootDir": "./",
     "strict": true,
@@ -11,13 +11,13 @@
     "noImplicitReturns": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
-    "exactOptionalPropertyTypes": true,
     "forceConsistentCasingInFileNames": true,
     "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
     "skipLibCheck": true,
-    "declaration": true,
-    "declarationMap": true,
-    "sourceMap": true,
+    "isolatedModules": true,
+    "resolveJsonModule": true,
+    "useDefineForClassFields": true,
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
     "paths": {
@@ -27,6 +27,6 @@
       "#database/*": ["./database/*"]
     }
   },
-  "include": ["app/**/*.ts", "config/**/*.ts", "start/**/*.ts", "database/**/*.ts"],
+  "include": ["**/*"],
   "exclude": ["node_modules", "build"]
 }

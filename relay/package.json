@@ -3,16 +3,16 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "description": "Okaiwa relay server — encrypted message transit only, zero storage",
   "imports": {
     "#app/*": "./app/*.js",
     "#config/*": "./config/*.js",
     "#start/*": "./start/*.js"
   },
-  "description": "Okaiwa relay server — encrypted message transit only, zero storage",
   "scripts": {
     "start": "node build/bin/server.js",
-    "build": "tsc",
-    "dev": "node --loader ts-node/esm bin/server.ts",
+    "build": "node ace build",
+    "dev": "node ace serve --hmr",
     "test": "vitest",
     "test:unit": "vitest run",
     "lint": "eslint . --ext .ts",
@@ -24,14 +24,24 @@
   "dependencies": {
     "@adonisjs/core": "^6.14.1",
     "@adonisjs/redis": "^9.1.0",
-    "@vinejs/vine": "^2.1.0"
+    "@vinejs/vine": "^2.1.0",
+    "reflect-metadata": "^0.2.2"
   },
   "devDependencies": {
+    "@adonisjs/assembler": "^7.8.2",
+    "@swc/core": "^1.10.1",
     "@types/node": "^22.10.0",
     "eslint": "^9.16.0",
     "prettier": "^3.4.2",
+    "ts-node-maintained": "^10.9.5",
     "typescript": "^5.7.2",
     "vitest": "^2.1.0"
+  },
+  "hotHook": {
+    "boundaries": [
+      "./app/controllers/**/*.ts",
+      "./app/middleware/*.ts"
+    ]
   },
   "engines": {
     "node": ">=20.0.0"

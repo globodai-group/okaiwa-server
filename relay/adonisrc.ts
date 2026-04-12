@@ -15,13 +15,14 @@ export default defineConfig({
   | Service Providers
   |--------------------------------------------------------------------------
   |
-  | Relay service: core + HTTP + Redis (for message queue with 7d TTL).
+  | Relay service: core app + hash + vine + Redis (for message queue TTL 7d).
   | No database provider — relay NEVER stores messages persistently.
   |
   */
   providers: [
     () => import('@adonisjs/core/providers/app_provider'),
-    () => import('@adonisjs/core/providers/http_provider'),
+    () => import('@adonisjs/core/providers/hash_provider'),
+    () => import('@adonisjs/core/providers/vinejs_provider'),
     () => import('@adonisjs/redis/redis_provider'),
   ],
 
@@ -32,15 +33,21 @@ export default defineConfig({
   */
   preloads: [
     () => import('#start/routes'),
+    () => import('#start/kernel'),
   ],
 
   /*
   |--------------------------------------------------------------------------
-  | Middleware
+  | Meta files
   |--------------------------------------------------------------------------
+  |
+  | Files copied to the build output when running `node ace build`.
+  |
   */
-  middleware: [
-    () => import('#app/middleware/device_auth_middleware'),
-    () => import('#app/middleware/rate_limit_middleware'),
+  metaFiles: [
+    {
+      pattern: 'public/**',
+      reloadServer: false,
+    },
   ],
 })
