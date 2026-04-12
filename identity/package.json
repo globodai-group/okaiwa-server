@@ -24,7 +24,7 @@
     "migration:run": "node ace migration:run"
   },
   "dependencies": {
-    "@adonisjs/core": "^6.14.1",
+    "@adonisjs/core": "^7.3.1",
     "@adonisjs/lucid": "^21.3.0",
     "@adonisjs/redis": "^9.1.0",
     "@vinejs/vine": "^2.1.0",
