@@ -162,7 +162,8 @@ export class FcmService {
     /**
      * TODO: Implement Google OAuth2 token exchange.
      *
-     * 1. Read the service account key from GOOGLE_APPLICATION_CREDENTIALS.
+     * 1. Read the service account key from `this.serviceAccountKeyPath`
+     *    (resolved from GOOGLE_APPLICATION_CREDENTIALS).
      * 2. Create a JWT assertion with:
      *    - iss: service account email
      *    - scope: https://www.googleapis.com/auth/firebase.messaging
@@ -174,6 +175,7 @@ export class FcmService {
      *    assertion={jwt}
      * 4. Cache the token until expiry.
      */
+    void this.serviceAccountKeyPath
     return ''
   }
 }

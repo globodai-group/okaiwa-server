@@ -55,7 +55,12 @@ const rpcProxyValidator = vine.compile(
     method: vine.string().minLength(1).maxLength(100),
     /** JSON-RPC params are heterogeneous by specification — any JSON value is valid. */
     params: vine.array(vine.any()).optional(),
-    id: vine.union([vine.string(), vine.number()]),
+    /**
+     * JSON-RPC id is a string, number, or null. VineJS 2 unions require the
+     * conditional `union.if` syntax which is overkill here. We accept `any`
+     * and echo it back unchanged in the response — the value is client-opaque.
+     */
+    id: vine.any(),
   })
 )
 
@@ -95,10 +100,7 @@ export default class RpcProxyController {
    * @returns The JSON-RPC response from the provider
    */
   async proxy({ params, request, response }: HttpContext): Promise<void> {
-    const { chain } = await vine.validate({
-      schema: chainValidator,
-      data: { chain: params.chain },
-    })
+    const { chain } = await chainValidator.validate({ chain: params.chain })
 
     const rpcPayload = await request.validateUsing(rpcProxyValidator)
 
@@ -188,10 +190,7 @@ export default class RpcProxyController {
    * @returns Transaction list from the provider
    */
   async getTransactions({ params, response }: HttpContext): Promise<void> {
-    const { chain } = await vine.validate({
-      schema: chainValidator,
-      data: { chain: params.chain },
-    })
+    const { chain } = await chainValidator.validate({ chain: params.chain })
 
     const address = params.address
 
@@ -244,10 +243,7 @@ export default class RpcProxyController {
    * @returns The transaction hash on success
    */
   async broadcastTransaction({ params, request, response }: HttpContext): Promise<void> {
-    const { chain } = await vine.validate({
-      schema: chainValidator,
-      data: { chain: params.chain },
-    })
+    const { chain } = await chainValidator.validate({ chain: params.chain })
 
     const payload = await request.validateUsing(broadcastValidator)
 

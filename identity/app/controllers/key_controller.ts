@@ -151,7 +151,12 @@ export default class KeyController {
    * @returns Pre-key bundle for session establishment
    */
   async fetchPreKey({ params, response }: HttpContext): Promise<void> {
-    const deviceId = params.deviceId
+    /**
+     * Validate the deviceId parameter shape. The regex rejects malformed
+     * identifiers before any database query runs, preventing enumeration
+     * probes from reaching Lucid.
+     */
+    const { deviceId } = await fetchPreKeyValidator.validate({ deviceId: params.deviceId })
 
     /**
      * Look up the account associated with this device.

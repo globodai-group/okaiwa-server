@@ -1,5 +1,4 @@
 import { ExceptionHandler, type HttpContext } from '@adonisjs/core/http'
-import type { StatusPageRange } from '@adonisjs/core/types/http'
 
 /**
  * Global exception handler for the relay service.
@@ -18,9 +17,11 @@ import type { StatusPageRange } from '@adonisjs/core/types/http'
 export default class Handler extends ExceptionHandler {
   /**
    * Status page ranges map HTTP status codes to error page templates.
-   * In an API service, we return JSON instead of HTML.
+   * In an API service, we return JSON instead of HTML, so the map is
+   * intentionally empty — the `handle()` method below builds every
+   * JSON response directly.
    */
-  protected statusPages: Record<string, StatusPageRange> = {}
+  protected override statusPages = {}
 
   /**
    * Debug mode is ALWAYS disabled in production.

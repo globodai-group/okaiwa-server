@@ -21,22 +21,29 @@ import env from '#start/env'
  */
 const pgHost = env.get('PG_HOST')
 const isLocalhost = pgHost === '127.0.0.1' || pgHost === 'localhost' || pgHost === '::1'
+const isProduction = env.get('NODE_ENV') === 'production'
 
 /**
- * Enable SSL only for non-localhost production connections.
- * Loopback traffic does not traverse the network, so SSL adds no value
- * and would require setting up a local CA.
+ * Build the SSL configuration block.
+ * - Returns `undefined` when SSL should be disabled (local dev, loopback prod).
+ * - Returns a `ConnectionOptions`-compatible object when SSL is required.
+ *
+ * The `pg` driver accepts `ssl?: boolean | TLSConnectionOptions`. We use the
+ * object form to allow optional CA pinning via `DB_SSL_CA`.
  */
-const sslConfig =
-  env.get('NODE_ENV') === 'production' && !isLocalhost
-    ? {
-        rejectUnauthorized: env.get('DB_SSL_REJECT_UNAUTHORIZED', 'true') === 'true',
-        ca: env.get('DB_SSL_CA', undefined),
-      }
-    : false
+function buildSslConfig(): { rejectUnauthorized: boolean; ca?: string } | undefined {
+  if (!isProduction || isLocalhost) {
+    return undefined
+  }
+
+  const ca = env.get('DB_SSL_CA')
+  const rejectUnauthorized = env.get('DB_SSL_REJECT_UNAUTHORIZED', 'true') === 'true'
+
+  return ca ? { rejectUnauthorized, ca } : { rejectUnauthorized }
+}
 
 export default defineConfig({
-  connection: env.get('DB_CONNECTION', 'pg'),
+  connection: 'pg',
 
   connections: {
     pg: {
@@ -47,7 +54,7 @@ export default defineConfig({
         user: env.get('PG_USER'),
         password: env.get('PG_PASSWORD'),
         database: env.get('PG_DB_NAME'),
-        ssl: sslConfig,
+        ssl: buildSslConfig(),
       },
 
       pool: {

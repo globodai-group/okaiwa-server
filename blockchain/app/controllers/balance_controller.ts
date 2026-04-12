@@ -56,10 +56,7 @@ export default class BalanceController {
    * @returns The balance in the chain's native token (wei/smallest unit)
    */
   async getBalance({ params, response }: HttpContext): Promise<void> {
-    const { chain } = await vine.validate({
-      schema: chainValidator,
-      data: { chain: params.chain },
-    })
+    const { chain } = await chainValidator.validate({ chain: params.chain })
 
     const address = params.address
 

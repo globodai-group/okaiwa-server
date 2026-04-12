@@ -165,6 +165,11 @@ export class ApnsService {
      * Payload: { "iss": this.teamId, "iat": Math.floor(Date.now() / 1000) }
      * Sign with: this.authKey (P8 EC private key)
      */
+    void this.host
+    void this.teamId
+    void this.keyId
+    void this.authKey
+    void APNS_PORT
     return ''
   }
 }

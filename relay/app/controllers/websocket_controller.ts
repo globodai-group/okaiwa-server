@@ -102,12 +102,14 @@ export default class WebSocketController {
   /**
    * Handle an incoming WebSocket message frame.
    *
-   * @param deviceId - The authenticated device identifier
+   * @param _deviceId - The authenticated device identifier (reserved for
+   *   future per-device routing; currently unused because the frame
+   *   payload already carries the target addressing information)
    * @param data - The parsed WebSocket frame
    * @returns The outgoing message or error, or void for acks
    */
   async handleFrame(
-    deviceId: string,
+    _deviceId: string,
     data: WsIncomingMessage
   ): Promise<WsOutgoingMessage | WsErrorMessage | void> {
     switch (data.type) {
