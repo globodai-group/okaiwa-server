@@ -1,5 +1,3 @@
-import { defineConfig } from '@adonisjs/core/app'
-
 /**
  * Identity service application configuration.
  *
@@ -13,9 +11,8 @@ import { defineConfig } from '@adonisjs/core/app'
  * processes plaintext phone numbers. Only pre-hashed values
  * (SHA-256, client-side) are accepted and stored.
  */
-export default defineConfig({
+const appConfig = {
   appName: '@okaiwa/identity',
-
   appKey: process.env.APP_KEY ?? '',
 
   http: {
@@ -23,13 +20,6 @@ export default defineConfig({
     trustProxy: process.env.TRUST_PROXY === 'true',
     maxRequestBodySize: '1mb',
   },
+}
 
-  providers: [
-    () => import('@adonisjs/core/providers/app_provider'),
-    () => import('@adonisjs/core/providers/http_provider'),
-    () => import('@adonisjs/lucid/database_provider'),
-    () => import('@adonisjs/auth/auth_provider'),
-  ],
-
-  middleware: [],
-})
+export default appConfig

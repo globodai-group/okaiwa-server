@@ -1,5 +1,3 @@
-import { defineConfig } from '@adonisjs/core/app'
-
 /**
  * Blockchain RPC proxy service configuration.
  *
@@ -10,9 +8,8 @@ import { defineConfig } from '@adonisjs/core/app'
  * SECURITY INVARIANT: No client-identifying information (IP, User-Agent,
  * headers) is ever forwarded to the RPC provider.
  */
-export default defineConfig({
+const appConfig = {
   appName: '@okaiwa/blockchain',
-
   appKey: process.env.APP_KEY ?? '',
 
   http: {
@@ -20,18 +17,6 @@ export default defineConfig({
     trustProxy: process.env.TRUST_PROXY === 'true',
     maxRequestBodySize: '1mb',
   },
+}
 
-  providers: [
-    () => import('@adonisjs/core/providers/app_provider'),
-    () => import('@adonisjs/core/providers/http_provider'),
-  ],
-
-  /**
-   * Global middleware.
-   * StripMetadataMiddleware MUST run before any controller to ensure
-   * identifying headers are removed before potential proxying.
-   */
-  middleware: [
-    () => import('#app/middleware/strip_metadata_middleware'),
-  ],
-})
+export default appConfig

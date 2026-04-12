@@ -26,6 +26,6 @@
       "#start/*": ["./start/*"]
     }
   },
-  "include": ["app/**/*.ts", "config/**/*.ts", "start/**/*.ts"],
+  "include": ["app/**/*.ts", "config/**/*.ts", "start/**/*.ts", "bin/**/*.ts", "ace.ts", "adonisrc.ts"],
   "exclude": ["node_modules", "build"]
 }

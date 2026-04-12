@@ -3,11 +3,16 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "imports": {
+    "#app/*": "./app/*.js",
+    "#config/*": "./config/*.js",
+    "#start/*": "./start/*.js"
+  },
   "description": "Okaiwa push notification gateway — silent notifications with ZERO message content",
   "scripts": {
-    "start": "node bin/server.js",
+    "start": "node build/bin/server.js",
     "build": "tsc",
-    "dev": "node ace serve --watch",
+    "dev": "node --loader ts-node/esm bin/server.ts",
     "test": "vitest",
     "test:unit": "vitest run",
     "lint": "eslint . --ext .ts",
