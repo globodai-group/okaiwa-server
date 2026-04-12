@@ -43,7 +43,7 @@
     "prettier": "^3.4.2",
     "ts-node-maintained": "^10.9.5",
     "typescript": "^5.7.2",
-    "vitest": "^2.1.0",
+    "vitest": "^4.1.4",
     "pino-pretty": "^13.0.0"
   },
   "hotHook": {
