@@ -25,7 +25,7 @@
   },
   "dependencies": {
     "@adonisjs/core": "^6.14.1",
-    "@adonisjs/lucid": "^21.3.0",
+    "@adonisjs/lucid": "^22.4.2",
     "@adonisjs/redis": "^9.1.0",
     "@vinejs/vine": "^2.1.0",
     "luxon": "^3.5.0",
