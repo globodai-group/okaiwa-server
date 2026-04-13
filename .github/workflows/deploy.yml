@@ -57,7 +57,7 @@ jobs:
       - name: Build relay
         run: pnpm --filter @okaiwa/relay build
       - name: Deploy to Heroku
-        uses: akhileshns/heroku-deploy@v3.14.15
+        uses: akhileshns/heroku-deploy@v4
         with:
           heroku_api_key: ${{ secrets.HEROKU_API_KEY }}
           heroku_app_name: ${{ secrets.HEROKU_APP_RELAY }}
@@ -83,7 +83,7 @@ jobs:
       - name: Build identity
         run: pnpm --filter @okaiwa/identity build
       - name: Deploy to Heroku
-        uses: akhileshns/heroku-deploy@v3.14.15
+        uses: akhileshns/heroku-deploy@v4
         with:
           heroku_api_key: ${{ secrets.HEROKU_API_KEY }}
           heroku_app_name: ${{ secrets.HEROKU_APP_IDENTITY }}
@@ -112,7 +112,7 @@ jobs:
       - name: Build push
         run: pnpm --filter @okaiwa/push build
       - name: Deploy to Heroku
-        uses: akhileshns/heroku-deploy@v3.14.15
+        uses: akhileshns/heroku-deploy@v4
         with:
           heroku_api_key: ${{ secrets.HEROKU_API_KEY }}
           heroku_app_name: ${{ secrets.HEROKU_APP_PUSH }}
@@ -138,7 +138,7 @@ jobs:
       - name: Build blockchain
         run: pnpm --filter @okaiwa/blockchain build
       - name: Deploy to Heroku
-        uses: akhileshns/heroku-deploy@v3.14.15
+        uses: akhileshns/heroku-deploy@v4
         with:
           heroku_api_key: ${{ secrets.HEROKU_API_KEY }}
           heroku_app_name: ${{ secrets.HEROKU_APP_BLOCKCHAIN }}
