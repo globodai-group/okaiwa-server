@@ -27,6 +27,12 @@ router.group(() => {
   router.post('/auth/register', [AuthController, 'register'])
   router.post('/auth/verify', [AuthController, 'verify'])
   router.post('/auth/refresh', [AuthController, 'refresh'])
+  /**
+   * Login is symmetric to register but only succeeds for accounts
+   * that already exist — the mobile UI uses the 404 to push the user
+   * into the create-account flow instead of silently registering.
+   */
+  router.post('/auth/login', [AuthController, 'login'])
 
   /**
    * === Key Management (Signal Protocol) ===

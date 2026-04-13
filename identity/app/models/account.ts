@@ -76,6 +76,15 @@ export default class Account extends BaseModel {
   @column()
   declare verified: boolean
 
+  /**
+   * UUIDv4 device identifier — addressable by the relay service.
+   * The identity service issues a relay deviceToken at verify time of
+   * the form `{deviceId}.{timestamp}.{hmac}`; the relay never sees
+   * the accountId and cannot map it back to identity data.
+   */
+  @column()
+  declare deviceId: string | null
+
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
 

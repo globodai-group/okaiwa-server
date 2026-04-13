@@ -1,4 +1,4 @@
-import { randomBytes } from 'node:crypto'
+import { createHmac, randomBytes } from 'node:crypto'
 import type { HttpContext } from '@adonisjs/core/http'
 import vine from '@vinejs/vine'
 import env from '#start/env'
@@ -77,6 +77,13 @@ const verifyValidator = vine.compile(
   })
 )
 
+/** Validator for login (existing-account OTP request). */
+const loginValidator = vine.compile(
+  vine.object({
+    phoneHash: vine.string().regex(/^[a-f0-9]{64}$/),
+  })
+)
+
 /** Validator for token refresh. */
 const refreshValidator = vine.compile(
   vine.object({
@@ -124,18 +131,21 @@ export default class AuthController {
     })
 
     /**
-     * Trigger SMS verification via the isolated SMS gateway.
-     * The identity service sends ONLY the account ID to the gateway.
-     * The gateway has its own mapping of account ID → phone number
-     * (encrypted, separate database). This architectural separation
-     * ensures no single service has both the phone number and the
-     * identity key.
+     * Trigger OTP delivery via the Brevo gateway (SMS + email in
+     * parallel). The identity service sends ONLY the account ID; the
+     * gateway has its own mapping of account ID → (phone, email) in
+     * an isolated database. This separation ensures no single service
+     * has both the contact info and the identity key.
      *
-     * TODO: Implement SMS gateway integration.
+     * TODO: Implement Brevo gateway RPC.
      */
 
     response.created({
       accountId: account.id,
+      // The deviceId is exposed at register time so the mobile client
+      // can stash it alongside the in-flight session — verify will
+      // mint a relay deviceToken that targets the same value.
+      deviceId: account.deviceId,
       status: 'pending_verification',
     })
   }
@@ -147,8 +157,16 @@ export default class AuthController {
    * Upon success, the account is marked as verified and a session
    * token is issued.
    *
+   * Returns BOTH:
+   *   - sessionToken / refreshToken — opaque tokens for the identity
+   *     service (profile, discovery, key management).
+   *   - deviceToken — HMAC-signed token for the relay service of the
+   *     form `{deviceId}.{timestamp}.{hmac}`. The relay never resolves
+   *     the deviceId back to an account; that separation is the
+   *     zero-knowledge guarantee.
+   *
    * @param ctx - AdonisJS HTTP context
-   * @returns 200 with session token on success
+   * @returns 200 with session + device tokens on success
    */
   async verify({ request, response }: HttpContext): Promise<void> {
     const payload = await request.validateUsing(verifyValidator)
@@ -163,12 +181,6 @@ export default class AuthController {
       return
     }
 
-    /**
-     * TODO: Validate the SMS code against the SMS gateway service.
-     * This involves an internal RPC call to the isolated SMS service.
-     * The SMS service validates the code and returns success/failure
-     * WITHOUT revealing the phone number to us.
-     */
     const codeValid = await this.validateSmsCode(account.id, payload.code)
     if (!codeValid) {
       response.unauthorized({ error: 'Verification failed' })
@@ -178,17 +190,57 @@ export default class AuthController {
     account.verified = true
     await account.save()
 
-    /**
-     * Generate an opaque session token.
-     * This token contains NO user information — it's a random value
-     * that maps to a session in the auth subsystem.
-     */
     const sessionToken = await this.generateSessionToken(account.id)
+    const deviceToken = this.generateDeviceToken(account.deviceId ?? account.id)
 
     response.ok({
       sessionToken: sessionToken.accessToken,
       refreshToken: sessionToken.refreshToken,
       expiresIn: sessionToken.expiresIn,
+      deviceId: account.deviceId ?? account.id,
+      deviceToken,
+    })
+  }
+
+  /**
+   * Login flow — request a fresh OTP for an EXISTING account.
+   *
+   * Distinct from register: returns 404 if the phone hash is unknown
+   * so the mobile client can prompt the user to create an account
+   * instead of silently registering them. Both this endpoint and
+   * register share the SAME OTP delivery path (Brevo SMS + email)
+   * because there is nothing to differentiate from the gateway's
+   * point of view — the only difference is the controller response.
+   *
+   * @param ctx - AdonisJS HTTP context
+   * @returns 200 if the OTP is queued, 404 if the phone is unknown
+   */
+  async login({ request, response }: HttpContext): Promise<void> {
+    const payload = await request.validateUsing(loginValidator)
+
+    const account = await Account.findBy('phoneHash', payload.phoneHash)
+    if (!account) {
+      /**
+       * Distinct 404 here is the explicit signal we need: the mobile
+       * UI distinguishes "this number is registered, send the OTP"
+       * from "this number is not registered, push to the create-account
+       * flow". The register endpoint does the symmetric thing on its
+       * own 409 — the two together let the client route correctly
+       * without a separate "does this number exist" oracle.
+       */
+      response.notFound({ error: 'No account for this phone' })
+      return
+    }
+
+    /**
+     * TODO: trigger the Brevo gateway to deliver a fresh OTP code
+     * (SMS + email in parallel). The gateway has its own DB mapping
+     * accountId → (phone, email) and validates without revealing
+     * either contact to this service.
+     */
+    response.ok({
+      accountId: account.id,
+      status: 'pending_verification',
     })
   }
 
@@ -267,5 +319,35 @@ export default class AuthController {
       refreshToken: randomBytes(32).toString('hex'),
       expiresIn: 3600,
     }
+  }
+
+  /**
+   * Generate the relay-service device token.
+   *
+   * The relay service authenticates devices via opaque HMAC tokens
+   * `{deviceId}.{timestamp}.{hmac}` where the HMAC is computed over
+   * `deviceId.timestamp` with the shared `DEVICE_AUTH_SECRET`. The
+   * relay never resolves deviceId back to an account — that's the
+   * zero-knowledge separation between the two services.
+   *
+   * The token is long-lived (1 year) per the relay's
+   * MAX_TOKEN_AGE_SECONDS check; revocation is out of scope for the
+   * MVP and lands when the per-device session table arrives.
+   *
+   * @param deviceId - The relay-addressable device identifier
+   * @returns The HMAC-signed token
+   */
+  private generateDeviceToken(deviceId: string): string {
+    const secret = env.get('DEVICE_AUTH_SECRET')
+    if (!secret) {
+      // Fail closed: if the shared secret is missing, the relay would
+      // reject every token anyway, so don't issue a half-formed one.
+      throw new Error('DEVICE_AUTH_SECRET not configured')
+    }
+    const timestamp = Math.floor(Date.now() / 1000).toString()
+    const hmac = createHmac('sha256', secret)
+      .update(`${deviceId}.${timestamp}`)
+      .digest('hex')
+    return `${deviceId}.${timestamp}.${hmac}`
   }
 }

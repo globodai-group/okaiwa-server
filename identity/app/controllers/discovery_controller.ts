@@ -72,7 +72,7 @@ export default class DiscoveryController {
       .query()
       .whereIn('phoneHash', payload.hashes)
       .where('verified', true)
-      .select('id', 'username', 'identityPublicKey', 'registrationId')
+      .select('id', 'username', 'identityPublicKey', 'registrationId', 'deviceId')
 
     /**
      * Build the response. We include the matched hash so the client
@@ -95,6 +95,9 @@ export default class DiscoveryController {
       username: account.username,
       identityPublicKey: account.identityPublicKey,
       registrationId: account.registrationId,
+      // The relay-addressable id — needed by senders so they can
+      // POST /v1/messages/send to the right inbox.
+      deviceId: account.deviceId,
     }))
 
     response.ok({
@@ -143,6 +146,7 @@ export default class DiscoveryController {
       username: account.username,
       identityPublicKey: account.identityPublicKey,
       registrationId: account.registrationId,
+      deviceId: account.deviceId,
       profile: profile
         ? {
             displayName: profile.displayName,
@@ -194,6 +198,7 @@ export default class DiscoveryController {
       username: profile.account.username,
       identityPublicKey: profile.account.identityPublicKey,
       registrationId: profile.account.registrationId,
+      deviceId: profile.account.deviceId,
       profile: {
         displayName: profile.displayName,
         bio: profile.bio,

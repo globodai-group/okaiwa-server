@@ -33,4 +33,13 @@ export default await Env.create(new URL('../', import.meta.url), {
    * of the env var disables the bypass.
    */
   DEV_SMS_BYPASS_CODE: Env.schema.string.optional(),
+
+  /**
+   * Shared HMAC secret used to mint the relay service device tokens.
+   * Must MATCH the same env var on the relay service deployment so
+   * the relay's signature verification succeeds. Both services live
+   * behind the same VPS today; the secret is provisioned at deploy
+   * time and never logged.
+   */
+  DEVICE_AUTH_SECRET: Env.schema.string(),
 })
