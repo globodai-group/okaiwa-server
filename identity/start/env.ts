@@ -25,4 +25,12 @@ export default await Env.create(new URL('../', import.meta.url), {
   REDIS_PORT: Env.schema.number(),
   REDIS_PASSWORD: Env.schema.string.optional(),
   REDIS_DB: Env.schema.number.optional(),
+
+  /**
+   * Dev-only SMS bypass. When set to a 6-digit string, the verify
+   * endpoint accepts that code for ANY account instead of querying
+   * the SMS gateway. MUST be left unset in production — the absence
+   * of the env var disables the bypass.
+   */
+  DEV_SMS_BYPASS_CODE: Env.schema.string.optional(),
 })

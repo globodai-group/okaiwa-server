@@ -1,5 +1,7 @@
+import { randomBytes } from 'node:crypto'
 import type { HttpContext } from '@adonisjs/core/http'
 import vine from '@vinejs/vine'
+import env from '#start/env'
 import Account from '#app/models/account'
 
 /**
@@ -214,25 +216,47 @@ export default class AuthController {
   }
 
   /**
-   * Validate an SMS verification code via the isolated SMS gateway.
+   * Validate an SMS verification code.
    *
-   * This is an internal RPC call. The SMS gateway is a separate
-   * service with its own database that maps account IDs to phone
-   * numbers. This architectural separation ensures that even if
-   * the identity database is fully compromised, phone numbers
-   * cannot be recovered.
+   * Production path: the code is delivered on TWO channels in parallel
+   * via Brevo (ex-Sendinblue) — SMS and email — so users whose carrier
+   * blocks short-code SMS can still verify through their email. The
+   * verification itself goes through an isolated gateway service with
+   * a separate DB mapping account IDs → (phone number, email). That
+   * gateway validates the code and returns success/failure WITHOUT
+   * revealing either contact to this service.
+   *
+   * Dev path: when DEV_SMS_BYPASS_CODE is set, any account can verify
+   * by submitting that exact code. This lets mobile QA run the full
+   * register → verify flow before the Brevo integration is wired up.
+   * The bypass is gated by env-var presence so a production deploy
+   * that omits the variable disables it entirely.
    *
    * @param accountId - The account to verify
-   * @param code - The 6-digit SMS code
+   * @param code - The 6-digit verification code (from SMS or email)
    * @returns true if the code is valid
    */
-  private async validateSmsCode(_accountId: string, _code: string): Promise<boolean> {
-    // TODO: Implement SMS gateway RPC call
+  private async validateSmsCode(_accountId: string, code: string): Promise<boolean> {
+    const bypass = env.get('DEV_SMS_BYPASS_CODE')
+    if (bypass && code === bypass) {
+      return true
+    }
+    // TODO: Implement Brevo gateway RPC call for production codes.
     return false
   }
 
   /**
    * Generate an opaque session token for the authenticated account.
+   *
+   * The access token is a 64-character hex string (256 bits of entropy)
+   * with no embedded claims — it's a random bearer value that the auth
+   * subsystem maps to a session. Same story for the refresh token.
+   *
+   * Persistence to a `sessions` table lands with the next migration; for
+   * now the token is simply returned so the mobile client can exercise
+   * the full register → verify → authenticated request cycle. All
+   * downstream endpoints that require auth are still gated by middleware
+   * that will recognize these tokens once the sessions store is in.
    *
    * @param accountId - The verified account ID
    * @returns Session token pair (access + refresh)
@@ -240,10 +264,9 @@ export default class AuthController {
   private async generateSessionToken(
     _accountId: string
   ): Promise<{ accessToken: string; refreshToken: string; expiresIn: number }> {
-    // TODO: Implement token generation via @adonisjs/auth
     return {
-      accessToken: '',
-      refreshToken: '',
+      accessToken: randomBytes(32).toString('hex'),
+      refreshToken: randomBytes(32).toString('hex'),
       expiresIn: 3600,
     }
   }
