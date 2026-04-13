@@ -71,14 +71,21 @@ export default class KeyController {
    * @param ctx - AdonisJS HTTP context
    * @returns 201 with the count of stored pre-keys
    */
-  async uploadPreKeys({ request, response }: HttpContext): Promise<void> {
+  async uploadPreKeys({ request, response, auth }: HttpContext): Promise<void> {
     const payload = await request.validateUsing(uploadPreKeysValidator)
 
     /**
-     * TODO: Extract accountId from authenticated session.
-     * The accountId is used to associate pre-keys with the account.
+     * SECURITY: accountId comes from the HMAC-validated session token
+     * the SessionAuthMiddleware put on `ctx.auth`. Reading it from a
+     * client-supplied header would let any caller upload pre-keys for
+     * any account — same horizontal auth bypass pattern we closed on
+     * PUT /v1/profile in 8748917.
      */
-    const accountId = request.header('x-account-id') ?? ''
+    const accountId = auth?.accountId
+    if (!accountId) {
+      response.unauthorized({ error: 'Authentication required' })
+      return
+    }
 
     const account = await Account.find(accountId)
     if (!account) {
@@ -159,10 +166,11 @@ export default class KeyController {
     const { deviceId } = await fetchPreKeyValidator.validate({ deviceId: params.deviceId })
 
     /**
-     * Look up the account associated with this device.
-     * TODO: Implement device-to-account mapping.
+     * Look up the account by its `deviceId` column (added in
+     * eca9627). The previous version queried `id` which conflated
+     * accountId with deviceId — wrong now that the two diverge.
      */
-    const account = await Account.findBy('id', deviceId)
+    const account = await Account.findBy('deviceId', deviceId)
     if (!account) {
       /**
        * Security: Generic error prevents device ID enumeration.
@@ -190,28 +198,41 @@ export default class KeyController {
     }
 
     /**
-     * Fetch and CONSUME one one-time pre-key.
+     * Fetch and CONSUME one one-time pre-key — atomically.
      *
-     * CRITICAL: This must be atomic. We mark the key as consumed
-     * in the same query to prevent race conditions.
-     * In production, use SELECT ... FOR UPDATE SKIP LOCKED.
+     * The previous SELECT-then-save() pattern was a race: two
+     * concurrent fetchers could both read the same unconsumed key,
+     * then both flip `consumed = true` without conflict, returning
+     * the SAME key to two peers. That breaks X3DH forward secrecy
+     * because both peers would derive a session from the same
+     * one-time material.
+     *
+     * The fix uses a single UPDATE...SET consumed=true WHERE id IN
+     * (SELECT id FROM ... LIMIT 1 FOR UPDATE SKIP LOCKED) RETURNING *
+     * — Postgres-specific but our deployment is pinned to Postgres
+     * 15+. Concurrent callers serialize on the row lock; the second
+     * caller skips the locked row and either gets the next available
+     * key or null. No race possible.
      */
-    const oneTimePreKey = await PreKey
+    const consumedRows = await PreKey
       .query()
-      .where('accountId', account.id)
-      .where('isSignedPreKey', false)
-      .where('consumed', false)
-      .orderBy('keyId', 'asc')
-      .first()
+      .from('pre_keys')
+      .whereRaw(
+        `id = (
+          SELECT id FROM pre_keys
+          WHERE account_id = ? AND is_signed_pre_key = false AND consumed = false
+          ORDER BY key_id ASC
+          LIMIT 1
+          FOR UPDATE SKIP LOCKED
+        )`,
+        [account.id]
+      )
+      .update({ consumed: true })
+      .returning(['key_id', 'public_key'])
 
-    if (oneTimePreKey) {
-      /**
-       * Mark as consumed IMMEDIATELY. The key cannot be reused.
-       * This is the core forward secrecy guarantee of X3DH.
-       */
-      oneTimePreKey.consumed = true
-      await oneTimePreKey.save()
-    }
+    const oneTimePreKey = consumedRows[0] as
+      | { key_id: number; public_key: string }
+      | undefined
 
     response.ok({
       identityKey: account.identityPublicKey,
@@ -228,8 +249,8 @@ export default class KeyController {
        */
       preKey: oneTimePreKey
         ? {
-            keyId: oneTimePreKey.keyId,
-            publicKey: oneTimePreKey.publicKey,
+            keyId: oneTimePreKey.key_id,
+            publicKey: oneTimePreKey.public_key,
           }
         : null,
     })

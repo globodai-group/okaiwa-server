@@ -43,7 +43,29 @@ router.group(() => {
    * - Fetch: Requesting a pre-key for a device CONSUMES it (one-time use).
    *   This prevents replay attacks and ensures forward secrecy.
    */
-  router.post('/keys/prekeys', [KeyController, 'uploadPreKeys'])
+  /**
+   * Upload your own batch of one-time pre-keys (and optionally a
+   * fresh signed pre-key). Requires Bearer auth — accountId is
+   * derived server-side from the token, never from a client header
+   * (closes the same horizontal-bypass we fixed on PUT /v1/profile).
+   */
+  router.post('/keys/prekeys', [KeyController, 'uploadPreKeys']).use(middleware.session())
+  /**
+   * Fetch (and consume) ONE one-time pre-key for the target deviceId,
+   * along with the long-lived signed pre-key + identity key. The
+   * one-time prekey is removed from the pool atomically — see the
+   * controller for the FOR UPDATE SKIP LOCKED dance that prevents
+   * two requesters from receiving the same key (which would break
+   * X3DH forward secrecy).
+   *
+   * Open route on purpose: peers who want to message someone need to
+   * fetch their bundle BEFORE having a session with them, so we
+   * can't gate this on "knowing the recipient". Discovery already
+   * exposes the deviceId only after username/wallet/phone-hash
+   * match, so the attack surface is bounded by what discovery lets
+   * the caller see. Rate limiting on this endpoint is the next
+   * natural defense — tracked separately.
+   */
   router.post('/keys/prekey/:deviceId', [KeyController, 'fetchPreKey'])
 
   /**
