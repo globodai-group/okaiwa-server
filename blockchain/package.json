@@ -25,7 +25,7 @@
     "@adonisjs/core": "^6.14.1",
     "@vinejs/vine": "^2.1.0",
     "reflect-metadata": "^0.2.2",
-    "pino": "^9.5.0"
+    "pino": "^10.3.1"
   },
   "devDependencies": {
     "@adonisjs/assembler": "^7.8.2",
