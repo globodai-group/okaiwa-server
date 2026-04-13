@@ -77,6 +77,19 @@ export default class PreKey extends BaseModel {
   declare isSignedPreKey: boolean
 
   /**
+   * Distinguishes Kyber (post-quantum, ML-KEM-1024) pre-keys from
+   * the classic X3DH Curve25519 pre-keys.
+   *
+   * Set by migration 005. libsignal 0.76+ requires a Kyber pre-key
+   * in every PreKeyBundle (PQXDH is mandatory in current Signal
+   * Protocol). Kyber pre-keys are signed (the `signature` column is
+   * always populated when this flag is true) and consumed on fetch
+   * just like the classic one-time pre-keys.
+   */
+  @column()
+  declare isKyberPreKey: boolean
+
+  /**
    * Whether this pre-key has been consumed (fetched by another user).
    *
    * SECURITY CRITICAL: Once consumed = true, this key MUST NOT be

@@ -28,6 +28,17 @@ export interface QueuedMessage {
   messageId: string
   recipientDeviceId: string
   blob: string
+  /**
+   * Sender's deviceId — surfaced back to the recipient on dequeue
+   * so they can address SessionCipher and look up the right Signal
+   * session. Privacy trade-off documented in the validator.
+   */
+  senderDeviceId: string
+  /**
+   * Sender's accountId — needed by the recipient to render the
+   * sender's profile on first contact (username, displayName).
+   */
+  senderAccountId: string
 }
 
 /**
@@ -37,6 +48,8 @@ export interface PendingMessage {
   messageId: string
   blob: string
   enqueuedAt: number
+  senderDeviceId: string
+  senderAccountId: string
 }
 
 export class MessageQueueService {
@@ -50,7 +63,7 @@ export class MessageQueueService {
    * @param message - The message to enqueue
    */
   async enqueue(message: QueuedMessage): Promise<void> {
-    const { messageId, recipientDeviceId, blob } = message
+    const { messageId, recipientDeviceId, blob, senderDeviceId, senderAccountId } = message
     const now = Date.now()
 
     const msgKey = `msg:${messageId}`
@@ -68,7 +81,12 @@ export class MessageQueueService {
      * After MESSAGE_TTL_SECONDS, Redis automatically deletes this key.
      * This is the core privacy guarantee: no indefinite storage.
      */
-    pipeline.set(msgKey, JSON.stringify({ blob, enqueuedAt: now }), 'EX', MESSAGE_TTL_SECONDS)
+    pipeline.set(
+      msgKey,
+      JSON.stringify({ blob, enqueuedAt: now, senderDeviceId, senderAccountId }),
+      'EX',
+      MESSAGE_TTL_SECONDS
+    )
 
     /**
      * Add to the recipient's inbox sorted set.
@@ -134,11 +152,23 @@ export class MessageQueueService {
         continue
       }
 
-      const parsed = JSON.parse(raw) as { blob: string; enqueuedAt: number }
+      const parsed = JSON.parse(raw) as {
+        blob: string
+        enqueuedAt: number
+        senderDeviceId?: string
+        senderAccountId?: string
+      }
       messages.push({
         messageId,
         blob: parsed.blob,
         enqueuedAt: parsed.enqueuedAt,
+        // Backward-compat: pre-existing entries on disk before this
+        // commit landed don't have sender fields. Default to empty
+        // strings so the recipient at least sees the message; the
+        // mobile client treats an empty senderDeviceId as a stale
+        // pre-migration entry and skips the reply path.
+        senderDeviceId: parsed.senderDeviceId ?? '',
+        senderAccountId: parsed.senderAccountId ?? '',
       })
     }
 

@@ -49,6 +49,19 @@ const uploadPreKeysValidator = vine.compile(
       publicKey: vine.string().minLength(32).maxLength(128),
       signature: vine.string().minLength(64).maxLength(256),
     }).optional(),
+
+    /**
+     * Optional Kyber-1024 (ML-KEM) pre-key for PQXDH.
+     * libsignal 0.76+ requires this in every fetched bundle, so
+     * mobile clients upload it at register time. The publicKey is
+     * MUCH larger than a Curve25519 key (~1568 bytes raw → ~2090
+     * chars base64) hence the wider maxLength bound.
+     */
+    kyberPreKey: vine.object({
+      keyId: vine.number().positive(),
+      publicKey: vine.string().minLength(64).maxLength(4096),
+      signature: vine.string().minLength(64).maxLength(256),
+    }).optional(),
   })
 )
 
@@ -103,6 +116,7 @@ export default class KeyController {
       publicKey: pk.publicKey,
       signature: null,
       isSignedPreKey: false,
+      isKyberPreKey: false,
       consumed: false,
     }))
 
@@ -120,6 +134,24 @@ export default class KeyController {
         publicKey: payload.signedPreKey.publicKey,
         signature: payload.signedPreKey.signature,
         isSignedPreKey: true,
+        isKyberPreKey: false,
+        consumed: false,
+      })
+    }
+
+    /**
+     * Persist the Kyber pre-key if provided. Same rotation policy as
+     * the classic signed pre-key — long-lived but rotated by clients
+     * periodically. Required for PQXDH (libsignal 0.76+).
+     */
+    if (payload.kyberPreKey) {
+      await PreKey.create({
+        accountId: account.id,
+        keyId: payload.kyberPreKey.keyId,
+        publicKey: payload.kyberPreKey.publicKey,
+        signature: payload.kyberPreKey.signature,
+        isSignedPreKey: false,
+        isKyberPreKey: true,
         consumed: false,
       })
     }
@@ -184,6 +216,7 @@ export default class KeyController {
       .query()
       .where('accountId', account.id)
       .where('isSignedPreKey', true)
+      .where('isKyberPreKey', false)
       .where('consumed', false)
       .orderBy('keyId', 'desc')
       .first()
@@ -220,7 +253,10 @@ export default class KeyController {
       .whereRaw(
         `id = (
           SELECT id FROM pre_keys
-          WHERE account_id = ? AND is_signed_pre_key = false AND consumed = false
+          WHERE account_id = ?
+            AND is_signed_pre_key = false
+            AND is_kyber_pre_key = false
+            AND consumed = false
           ORDER BY key_id ASC
           LIMIT 1
           FOR UPDATE SKIP LOCKED
@@ -234,9 +270,32 @@ export default class KeyController {
       | { key_id: number; public_key: string }
       | undefined
 
+    /**
+     * Fetch (without consuming, for now) the most recent Kyber
+     * pre-key. PQXDH treats the Kyber key like a "signed pre-key"
+     * conceptually — it stays available across multiple session
+     * negotiations for a given rotation period, then the client
+     * uploads a fresh one. Marking it consumed on every fetch would
+     * exhaust the pool too fast, so we take the highest keyId
+     * unconsumed and let rotation handle freshness. A future commit
+     * will introduce per-rotation consumption to match Signal's own
+     * server semantics — tracked as a follow-up.
+     */
+    const kyberPreKey = await PreKey
+      .query()
+      .where('accountId', account.id)
+      .where('isKyberPreKey', true)
+      .where('consumed', false)
+      .orderBy('keyId', 'desc')
+      .first()
+
     response.ok({
       identityKey: account.identityPublicKey,
       registrationId: account.registrationId,
+      // Surface the deviceId so the receiver can address SessionCipher
+      // properly — the path param is what the caller already had, so
+      // we echo it back for symmetry with discovery responses.
+      deviceId: account.deviceId,
       signedPreKey: {
         keyId: signedPreKey.keyId,
         publicKey: signedPreKey.publicKey,
@@ -251,6 +310,19 @@ export default class KeyController {
         ? {
             keyId: oneTimePreKey.key_id,
             publicKey: oneTimePreKey.public_key,
+          }
+        : null,
+      /**
+       * Kyber-1024 pre-key — required by libsignal 0.76+ for PQXDH.
+       * When null the client will fail to build a session; we let the
+       * mobile layer surface a clean error rather than silently fall
+       * back to non-PQ session establishment.
+       */
+      kyberPreKey: kyberPreKey
+        ? {
+            keyId: kyberPreKey.keyId,
+            publicKey: kyberPreKey.publicKey,
+            signature: kyberPreKey.signature,
           }
         : null,
     })

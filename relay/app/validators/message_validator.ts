@@ -58,6 +58,28 @@ export const sendMessageValidator = vine.compile(
      * Only the size is validated to prevent abuse.
      */
     blob: vine.string().maxLength(MAX_BLOB_SIZE),
+
+    /**
+     * Sender's device identifier — passed in clear so the recipient
+     * can address SessionCipher / look up the right Signal session.
+     *
+     * Privacy trade-off (documented): the relay sees who's sending to
+     * whom in clear. This is acceptable for the MVP because the relay
+     * already correlates source IP → recipient deviceId at the TCP
+     * layer. Sealed Sender (Signal's mechanism that hides this from
+     * the relay) lands in v2 and will use a per-session token here
+     * instead. Until then, the relay's controller MUST NOT log this
+     * field — and currently doesn't.
+     */
+    senderDeviceId: vine.string().regex(DEVICE_ID_REGEX),
+
+    /**
+     * Sender's accountId — needed by the recipient to render the
+     * sender's profile (username, displayName) on a first-contact
+     * message. Same privacy trade-off as senderDeviceId; same
+     * "delete-on-deliver" lifecycle so it's not stored long-term.
+     */
+    senderAccountId: vine.string().minLength(8).maxLength(64),
   })
 )
 

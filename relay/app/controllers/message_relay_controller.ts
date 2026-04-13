@@ -44,6 +44,8 @@ export default class MessageRelayController {
       messageId: payload.messageId,
       recipientDeviceId: payload.recipientDeviceId,
       blob: payload.blob,
+      senderDeviceId: payload.senderDeviceId,
+      senderAccountId: payload.senderAccountId,
     })
 
     response.accepted({
