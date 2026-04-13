@@ -23,6 +23,6 @@ export default defineConfig({
     convertEmptyStringsToNull: true,
     processManually: [],
     types: ['multipart/form-data'],
-    maxSize: '20mb',
+    limit: '20mb',
   },
 })
