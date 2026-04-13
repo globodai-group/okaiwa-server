@@ -39,7 +39,7 @@ okaiwa-server/
 
 ```bash
 # Clone the repository
-git clone https://github.com/globodai-group/okaiwa-server.git
+git clone https://github.com/okaiwa/okaiwa-server.git
 cd okaiwa-server
 
 # Install dependencies
@@ -76,7 +76,7 @@ pnpm run build
 cd relay && node build/bin/server.js
 ```
 
-We recommend deploying each service behind a reverse proxy (e.g., Nginx, Caddy) with TLS termination. See the [deployment documentation](https://github.com/globodai-group/okaiwa-docs) for detailed guides.
+We recommend deploying each service behind a reverse proxy (e.g., Nginx, Caddy) with TLS termination. See the [deployment documentation](https://github.com/okaiwa/okaiwa-docs) for detailed guides.
 
 ### Docker
 

@@ -6,7 +6,7 @@ Okaiwa Server est le monorepo backend de la plateforme Okaiwa, un messager secur
 
 **Ce depot est PUBLIC sous licence AGPLv3.**
 
-**Organisation GitHub :** `globodai-group`
+**Organisation GitHub :** `okaiwa`
 
 ---
 
