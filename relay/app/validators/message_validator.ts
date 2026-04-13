@@ -78,8 +78,15 @@ export const sendMessageValidator = vine.compile(
      * sender's profile (username, displayName) on a first-contact
      * message. Same privacy trade-off as senderDeviceId; same
      * "delete-on-deliver" lifecycle so it's not stored long-term.
+     *
+     * Format: UUIDv4 (lowercase hex + hyphens, 36 chars) — matching
+     * the gen_random_uuid() shape that account.id columns use. This
+     * blocks a malicious client from putting an arbitrary string
+     * (display name? URL?) into the senderAccountId field which
+     * would then be surfaced verbatim by the recipient's profile
+     * card on first contact.
      */
-    senderAccountId: vine.string().minLength(8).maxLength(64),
+    senderAccountId: vine.string().regex(/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/),
   })
 )
 

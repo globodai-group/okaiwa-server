@@ -51,13 +51,30 @@ const uploadPreKeysValidator = vine.compile(
     }).optional(),
 
     /**
-     * Optional Kyber-1024 (ML-KEM) pre-key for PQXDH.
-     * libsignal 0.76+ requires this in every fetched bundle, so
-     * mobile clients upload it at register time. The publicKey is
-     * MUCH larger than a Curve25519 key (~1568 bytes raw → ~2090
-     * chars base64) hence the wider maxLength bound.
+     * Optional batch of one-time Kyber-1024 (ML-KEM) pre-keys for
+     * PQXDH. Each row is consumed on fetch — providing PQ-FS for
+     * the resulting session. Mobile clients upload a batch alongside
+     * the X3DH OPK batch and refill periodically.
+     *
+     * Each Kyber publicKey is ~1568 bytes raw → ~2090 chars base64
+     * hence the wider maxLength bound.
      */
-    kyberPreKey: vine.object({
+    kyberPreKeys: vine.array(
+      vine.object({
+        keyId: vine.number().positive(),
+        publicKey: vine.string().minLength(64).maxLength(4096),
+        signature: vine.string().minLength(64).maxLength(256),
+      })
+    ).maxLength(100).optional(),
+
+    /**
+     * Optional last-resort Kyber pre-key — long-lived fallback used
+     * when the one-time Kyber pool is exhausted. NEVER consumed by
+     * the server (sessions established from it have degraded PQ-FS,
+     * same model as the X3DH classic signed pre-key fallback).
+     * Clients rotate it periodically by uploading a fresh one.
+     */
+    lastResortKyberPreKey: vine.object({
       keyId: vine.number().positive(),
       publicKey: vine.string().minLength(64).maxLength(4096),
       signature: vine.string().minLength(64).maxLength(256),
@@ -140,27 +157,51 @@ export default class KeyController {
     }
 
     /**
-     * Persist the Kyber pre-key if provided. Same rotation policy as
-     * the classic signed pre-key — long-lived but rotated by clients
-     * periodically. Required for PQXDH (libsignal 0.76+).
+     * Persist the one-time Kyber batch (consumed on fetch).
      */
-    if (payload.kyberPreKey) {
-      await PreKey.create({
+    if (payload.kyberPreKeys && payload.kyberPreKeys.length > 0) {
+      const kyberRows = payload.kyberPreKeys.map((k) => ({
         accountId: account.id,
-        keyId: payload.kyberPreKey.keyId,
-        publicKey: payload.kyberPreKey.publicKey,
-        signature: payload.kyberPreKey.signature,
+        keyId: k.keyId,
+        publicKey: k.publicKey,
+        signature: k.signature,
         isSignedPreKey: false,
         isKyberPreKey: true,
+        isLastResortKyber: false,
+        consumed: false,
+      }))
+      await PreKey.createMany(kyberRows)
+    }
+
+    /**
+     * Persist (or rotate) the last-resort Kyber pre-key. NEVER
+     * consumed on fetch — used as the PQXDH equivalent of the classic
+     * signed pre-key fallback when one-time Kyber rows are exhausted.
+     */
+    if (payload.lastResortKyberPreKey) {
+      await PreKey.create({
+        accountId: account.id,
+        keyId: payload.lastResortKyberPreKey.keyId,
+        publicKey: payload.lastResortKyberPreKey.publicKey,
+        signature: payload.lastResortKyberPreKey.signature,
+        isSignedPreKey: false,
+        isKyberPreKey: true,
+        isLastResortKyber: true,
         consumed: false,
       })
     }
 
-    /** Return the total count of available pre-keys for this account. */
+    /**
+     * Total of available one-time X3DH pre-keys (the count the client
+     * uses to decide whether to top up). Filter on is_kyber_pre_key=
+     * false explicitly — without it, kyber rows would inflate the
+     * count and the client would let its real X3DH OPK pool drain.
+     */
     const availableCount = await PreKey
       .query()
       .where('accountId', account.id)
       .where('isSignedPreKey', false)
+      .where('isKyberPreKey', false)
       .where('consumed', false)
       .count('* as total')
 
@@ -271,23 +312,72 @@ export default class KeyController {
       | undefined
 
     /**
-     * Fetch (without consuming, for now) the most recent Kyber
-     * pre-key. PQXDH treats the Kyber key like a "signed pre-key"
-     * conceptually — it stays available across multiple session
-     * negotiations for a given rotation period, then the client
-     * uploads a fresh one. Marking it consumed on every fetch would
-     * exhaust the pool too fast, so we take the highest keyId
-     * unconsumed and let rotation handle freshness. A future commit
-     * will introduce per-rotation consumption to match Signal's own
-     * server semantics — tracked as a follow-up.
+     * Fetch a Kyber pre-key for PQXDH, in two strict steps:
+     *
+     *   1. Try to atomically consume one ONE-TIME Kyber row (same
+     *      FOR UPDATE SKIP LOCKED dance as the X3DH OPK consumption
+     *      above). One-time Kyber rows provide post-quantum forward
+     *      secrecy: a future identity-key compromise can't decrypt
+     *      sessions established with one once the row is destroyed.
+     *
+     *   2. If the one-time Kyber pool is empty, fall back to the
+     *      long-lived "last-resort" Kyber row. That row is NEVER
+     *      consumed — sessions built from it have degraded PQ-FS
+     *      (same model as the classic X3DH signed-pre-key fallback).
+     *      Clients rotate the last-resort key periodically.
+     *
+     * The previous "highest keyId unconsumed" pick treated all Kyber
+     * rows as never-consumed and let a hostile peer drain PQ-FS by
+     * fetching the bundle in a loop. Migration 006 introduced the
+     * `is_last_resort_kyber` flag that gates which path applies.
      */
-    const kyberPreKey = await PreKey
+    const consumedKyberRows = await PreKey
       .query()
-      .where('accountId', account.id)
-      .where('isKyberPreKey', true)
-      .where('consumed', false)
-      .orderBy('keyId', 'desc')
-      .first()
+      .from('pre_keys')
+      .whereRaw(
+        `id = (
+          SELECT id FROM pre_keys
+          WHERE account_id = ?
+            AND is_kyber_pre_key = true
+            AND is_last_resort_kyber = false
+            AND consumed = false
+          ORDER BY key_id ASC
+          LIMIT 1
+          FOR UPDATE SKIP LOCKED
+        )`,
+        [account.id]
+      )
+      .update({ consumed: true })
+      .returning(['key_id', 'public_key', 'signature'])
+
+    let kyberPreKey:
+      | { keyId: number; publicKey: string; signature: string | null }
+      | null =
+      consumedKyberRows[0]
+        ? {
+            keyId: (consumedKyberRows[0] as { key_id: number }).key_id,
+            publicKey: (consumedKyberRows[0] as { public_key: string }).public_key,
+            signature: (consumedKyberRows[0] as { signature: string | null }).signature,
+          }
+        : null
+
+    if (!kyberPreKey) {
+      const lastResort = await PreKey
+        .query()
+        .where('accountId', account.id)
+        .where('isKyberPreKey', true)
+        .where('isLastResortKyber', true)
+        .where('consumed', false)
+        .orderBy('keyId', 'desc')
+        .first()
+      if (lastResort) {
+        kyberPreKey = {
+          keyId: lastResort.keyId,
+          publicKey: lastResort.publicKey,
+          signature: lastResort.signature,
+        }
+      }
+    }
 
     response.ok({
       identityKey: account.identityPublicKey,

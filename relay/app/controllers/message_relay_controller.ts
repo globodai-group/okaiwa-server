@@ -39,7 +39,20 @@ export default class MessageRelayController {
      * Security: We deliberately do NOT log the recipientDeviceId or
      * messageId in production, as this would create a correlation
      * record between sender device and recipient device.
+     *
+     * Cross-check: the senderDeviceId in the body MUST match the
+     * deviceId derived from the HMAC-validated Bearer token (set
+     * on the request by DeviceAuthMiddleware via the x-device-id
+     * header). This blocks a hijacker who got hold of someone
+     * else's deviceToken from impersonating a victim's identity
+     * in the encrypted envelope to a third party.
      */
+    const tokenDeviceId = request.header('x-device-id')
+    if (!tokenDeviceId || tokenDeviceId !== payload.senderDeviceId) {
+      response.unauthorized({ error: 'Sender mismatch' })
+      return
+    }
+
     await this.messageQueue.enqueue({
       messageId: payload.messageId,
       recipientDeviceId: payload.recipientDeviceId,

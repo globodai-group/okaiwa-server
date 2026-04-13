@@ -83,11 +83,27 @@ export default class PreKey extends BaseModel {
    * Set by migration 005. libsignal 0.76+ requires a Kyber pre-key
    * in every PreKeyBundle (PQXDH is mandatory in current Signal
    * Protocol). Kyber pre-keys are signed (the `signature` column is
-   * always populated when this flag is true) and consumed on fetch
-   * just like the classic one-time pre-keys.
+   * always populated when this flag is true).
    */
   @column()
   declare isKyberPreKey: boolean
+
+  /**
+   * Distinguishes the long-lived "last-resort" Kyber pre-key from
+   * the one-time pool. Set by migration 006.
+   *
+   * - true: long-lived, returned when the one-time pool is exhausted,
+   *   NEVER marked consumed (rotated by the client periodically).
+   *   Sessions built from it have degraded PQ-FS.
+   * - false: one-time, consumed atomically on fetch. Provides PQ-FS:
+   *   a future compromise of the identity key cannot retroactively
+   *   decrypt sessions established with this row.
+   *
+   * Only meaningful when `isKyberPreKey = true`. For X3DH rows
+   * (isKyberPreKey = false) this column stays at its default `false`.
+   */
+  @column()
+  declare isLastResortKyber: boolean
 
   /**
    * Whether this pre-key has been consumed (fetched by another user).
