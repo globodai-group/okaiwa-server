@@ -76,6 +76,16 @@ router.group(() => {
    * by anyone via username, no auth needed.
    */
   router.put('/profile', [ProfileController, 'update']).use(middleware.session())
+  /**
+   * GET /v1/profile/me — auth-required. Returns the caller's own
+   * profile (even private fields). The mobile Profile tab calls this
+   * on each cold start so the UI reflects what was last saved
+   * server-side, not stale local cache.
+   *
+   * Declared BEFORE /profile/:username so the static `me` doesn't
+   * get swallowed by the dynamic param matcher.
+   */
+  router.get('/profile/me', [ProfileController, 'me']).use(middleware.session())
   router.get('/profile/:username', [ProfileController, 'get'])
 
 }).prefix('/v1')

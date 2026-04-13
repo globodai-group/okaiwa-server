@@ -149,6 +149,55 @@ export default class ProfileController {
   }
 
   /**
+   * Get the authenticated caller's own profile.
+   *
+   * Auth-required (gated by SessionAuthMiddleware): the accountId is
+   * derived from the Bearer access token, so the caller can never
+   * peek at someone else's full profile via this endpoint. Returns
+   * even private/contacts-visibility fields that `get(:username)`
+   * would hide — the caller IS the owner.
+   *
+   * The mobile Profile tab calls this on each cold start so the UI
+   * reflects whatever was last saved on the server, regardless of
+   * which device wrote the update.
+   *
+   * @param ctx - AdonisJS HTTP context
+   * @returns 200 with the caller's profile, 404 if the account is gone
+   */
+  async me({ response, auth }: HttpContext): Promise<void> {
+    const accountId = auth?.accountId
+    if (!accountId) {
+      response.unauthorized({ error: 'Authentication required' })
+      return
+    }
+
+    const account = await Account.find(accountId)
+    if (!account) {
+      response.notFound({ error: 'Account not found' })
+      return
+    }
+
+    const profile = await Profile.findBy('accountId', accountId)
+
+    response.ok({
+      accountId: account.id,
+      username: account.username,
+      identityPublicKey: account.identityPublicKey,
+      profile: profile
+        ? {
+            displayName: profile.displayName,
+            bio: profile.bio,
+            avatarUrl: profile.avatarUrl,
+            visibility: profile.visibility,
+            // Owner sees their own exposed wallets even when the
+            // visibility level would hide them from third parties.
+            exposedWalletAddresses: profile.exposedWalletAddresses,
+          }
+        : null,
+    })
+  }
+
+  /**
    * Get a user's public profile by username.
    *
    * Respects visibility settings:
