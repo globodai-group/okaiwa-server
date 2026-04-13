@@ -196,23 +196,16 @@ export default class AuthController {
    * Refresh an expired session token.
    *
    * @param ctx - AdonisJS HTTP context
-   * @returns 200 with new session token
+   * @returns 501 until the sessions table + refresh-token rotation
+   *   land. Returning empty strings (the previous behaviour) silently
+   *   wiped the client-side session store, so an explicit 501 lets the
+   *   mobile clients surface "please log in again" instead of dropping
+   *   the user into a half-authenticated state.
    */
   async refresh({ request, response }: HttpContext): Promise<void> {
     const payload = await request.validateUsing(refreshValidator)
-
-    /**
-     * TODO: Validate payload.refreshToken and issue new access token.
-     * Refresh tokens are single-use — after rotation, the old refresh
-     * token is invalidated to prevent replay.
-     */
     void payload
-
-    response.ok({
-      sessionToken: '',
-      refreshToken: '',
-      expiresIn: 3600,
-    })
+    response.status(501).send({ error: 'Refresh not yet implemented' })
   }
 
   /**
@@ -237,8 +230,13 @@ export default class AuthController {
    * @returns true if the code is valid
    */
   private async validateSmsCode(_accountId: string, code: string): Promise<boolean> {
+    // Defense-in-depth: env-var presence is one gate, NODE_ENV is the
+    // second. A misconfigured prod deploy that accidentally inherits
+    // DEV_SMS_BYPASS_CODE (copied .env, propagation through CI secrets)
+    // still cannot enable the bypass — only `development` honors it.
     const bypass = env.get('DEV_SMS_BYPASS_CODE')
-    if (bypass && code === bypass) {
+    const isDev = env.get('NODE_ENV') === 'development'
+    if (isDev && bypass && code === bypass) {
       return true
     }
     // TODO: Implement Brevo gateway RPC call for production codes.
