@@ -64,13 +64,21 @@ export default class ProfileController {
    * @param ctx - AdonisJS HTTP context
    * @returns 200 with the updated profile
    */
-  async update({ request, response }: HttpContext): Promise<void> {
+  async update({ request, response, auth }: HttpContext): Promise<void> {
     const payload = await request.validateUsing(updateProfileValidator)
 
     /**
-     * TODO: Extract accountId from the authenticated session.
+     * SECURITY: accountId comes from the HMAC-validated session token
+     * the SessionAuthMiddleware put on `ctx.auth`. We must NOT read
+     * it from the request body or any header — that would re-open
+     * the horizontal auth bypass the middleware was added to close
+     * (any client could overwrite any other user's profile).
      */
-    const accountId = request.header('x-account-id') ?? ''
+    const accountId = auth?.accountId
+    if (!accountId) {
+      response.unauthorized({ error: 'Authentication required' })
+      return
+    }
 
     const account = await Account.find(accountId)
     if (!account) {

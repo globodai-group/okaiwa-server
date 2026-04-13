@@ -1,4 +1,5 @@
 import router from '@adonisjs/core/services/router'
+import { middleware } from '#start/kernel'
 
 const AuthController = () => import('#app/controllers/auth_controller')
 const KeyController = () => import('#app/controllers/key_controller')
@@ -64,8 +65,17 @@ router.group(() => {
    *
    * User-controlled public profile. Users choose what to expose.
    * Wallet addresses are opt-in (exposedWalletAddresses).
+   *
+   * PUT requires the session middleware so the accountId is derived
+   * from the HMAC-signed access token, NOT from a client-supplied
+   * header. Without this guard ANY client could overwrite ANY user's
+   * profile by passing the target accountId — see the security
+   * review on commit 386d11d.
+   *
+   * GET is public (intentional): public profiles are discoverable
+   * by anyone via username, no auth needed.
    */
-  router.put('/profile', [ProfileController, 'update'])
+  router.put('/profile', [ProfileController, 'update']).use(middleware.session())
   router.get('/profile/:username', [ProfileController, 'get'])
 
 }).prefix('/v1')

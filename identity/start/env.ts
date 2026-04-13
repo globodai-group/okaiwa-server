@@ -42,4 +42,13 @@ export default await Env.create(new URL('../', import.meta.url), {
    * time and never logged.
    */
   DEVICE_AUTH_SECRET: Env.schema.string(),
+
+  /**
+   * HMAC secret used to mint THIS service's session access tokens
+   * (`{accountId}.{timestamp}.{hmac}`). Distinct from
+   * DEVICE_AUTH_SECRET so a leaked relay secret cannot forge identity
+   * sessions and vice versa — defense in depth across the
+   * zero-knowledge boundary between the two services.
+   */
+  IDENTITY_SESSION_SECRET: Env.schema.string(),
 })

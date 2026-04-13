@@ -63,7 +63,6 @@ export default defineConfig({
       },
 
       debug: false,
-      healthCheck: true,
 
       migrations: {
         naturalSort: true,

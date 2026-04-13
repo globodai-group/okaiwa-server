@@ -312,10 +312,25 @@ export default class AuthController {
    * @returns Session token pair (access + refresh)
    */
   private async generateSessionToken(
-    _accountId: string
+    accountId: string
   ): Promise<{ accessToken: string; refreshToken: string; expiresIn: number }> {
+    // The session token is HMAC-signed in the same shape as the relay
+    // deviceToken: `{accountId}.{timestamp}.{hmac}`. The auth
+    // middleware can verify it WITHOUT a sessions-table lookup — same
+    // zero-knowledge separation we already use for the relay. The
+    // refresh token stays as random opaque bytes (only ever checked
+    // at the refresh endpoint, which can do a simple compare once we
+    // wire it).
+    const secret = env.get('IDENTITY_SESSION_SECRET')
+    if (!secret) {
+      throw new Error('IDENTITY_SESSION_SECRET not configured')
+    }
+    const timestamp = Math.floor(Date.now() / 1000).toString()
+    const hmac = createHmac('sha256', secret)
+      .update(`${accountId}.${timestamp}`)
+      .digest('hex')
     return {
-      accessToken: randomBytes(32).toString('hex'),
+      accessToken: `${accountId}.${timestamp}.${hmac}`,
       refreshToken: randomBytes(32).toString('hex'),
       expiresIn: 3600,
     }
