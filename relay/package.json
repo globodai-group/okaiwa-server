@@ -24,7 +24,7 @@
   "dependencies": {
     "@adonisjs/core": "^6.14.1",
     "@adonisjs/redis": "^9.1.0",
-    "@vinejs/vine": "^2.1.0",
+    "@vinejs/vine": "^4.3.1",
     "reflect-metadata": "^0.2.2",
     "pino": "^9.5.0"
   },
