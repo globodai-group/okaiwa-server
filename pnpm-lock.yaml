@@ -4,6 +4,10 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+overrides:
+  '@adonisjs/http-server': ^7.8.1
+  fast-uri: ^3.1.2
+
 importers:
 
   .:
@@ -255,7 +259,7 @@ packages:
     resolution: {integrity: sha512-VLPdNO1SHji+UJmdteoqJdkghS4kKeYor3bxxVIxxX/mAn51qzmPhAwH5dzMj82Kl2QGWpXEbPwoMIUgBq0QGw==}
     engines: {node: '>=18.16.0'}
     peerDependencies:
-      '@adonisjs/http-server': ^7.4.0
+      '@adonisjs/http-server': ^7.8.1
 
   '@adonisjs/config@5.0.3':
     resolution: {integrity: sha512-dO7gkYxZsrsnR8n7d5KUpyi+Q5c6BnV2rmFDqEmEjz5AkOZLLzJJJbeHgMb+M27le7ifEUoa8MRu6RED8NMsJg==}
